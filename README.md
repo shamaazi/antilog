@@ -6,6 +6,7 @@ Package antilog is the antidote to modern loggers.
 * AntiLog does not have log levels. If you don't want something logged, don't log it.
 * AntiLog always uses RFC3339 formatted UTC timestamps.
 * AntiLog does support setting fields in context. Useful for building a log context over the course of an operation.
+* AntiLog always outputs the fields in the order they were added. This does mean duplicates are possible so take care!
 
 ## Basic Usage
 
