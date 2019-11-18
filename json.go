@@ -59,7 +59,7 @@ func toJSONObjectFields(fields []Field) string {
 				sb.WriteString(`, `)
 			}
 
-			sb.WriteStrings(strconv.Quote(key), `: `, value)
+			sb.WriteStrings(strconv.Quote(key), `: `, value.String())
 			comma = true
 		}
 	}
@@ -67,17 +67,17 @@ func toJSONObjectFields(fields []Field) string {
 	return sb.String()
 }
 
-func toJSONObject(fields []Field) string {
+func toJSONObject(fields []Field) EncodedField {
 	var sb stringBuilder
 	sb.WriteString(`{ `)
 
 	sb.WriteString(toJSONObjectFields(fields))
 
 	sb.WriteString(` }`)
-	return sb.String()
+	return EncodedField(sb.String())
 }
 
-func toJSONArray(values []Field) string {
+func toJSONArray(values []Field) EncodedField {
 	var sb stringBuilder
 	sb.WriteString(`[ `)
 
@@ -87,30 +87,30 @@ func toJSONArray(values []Field) string {
 			if comma {
 				sb.WriteString(`, `)
 			}
-			sb.WriteString(value)
+			sb.WriteString(value.String())
 			comma = true
 		}
 	}
 
 	sb.WriteString(` ]`)
-	return sb.String()
+	return EncodedField(sb.String())
 }
 
-func toJSON(field Field) (string, bool) {
+func toJSON(field Field) (EncodedField, bool) {
 	v := reflect.ValueOf(field)
 
-	var value string
+	var value EncodedField
 	switch v.Kind() {
 	case reflect.Bool:
-		value = fmt.Sprintf("%v", v.Bool())
+		value = EncodedField(fmt.Sprintf("%v", v.Bool()))
 	case reflect.Int, reflect.Int8, reflect.Int32, reflect.Int64:
-		value = fmt.Sprintf("%v", v.Int())
+		value = EncodedField(fmt.Sprintf("%v", v.Int()))
 	case reflect.Uint, reflect.Uint8, reflect.Uint32, reflect.Uint64:
-		value = fmt.Sprintf("%v", v.Uint())
+		value = EncodedField(fmt.Sprintf("%v", v.Uint()))
 	case reflect.Float32, reflect.Float64:
-		value = fmt.Sprintf("%v", v.Float())
+		value = EncodedField(fmt.Sprintf("%v", v.Float()))
 	case reflect.String:
-		value = strconv.Quote(v.String())
+		value = EncodedField(strconv.Quote(v.String()))
 	case reflect.Slice:
 		values := extractArrayAsValues(v)
 		value = toJSONArray(values)

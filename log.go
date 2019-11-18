@@ -17,18 +17,15 @@ import (
 	"time"
 )
 
-// Field type for all inputs
-type Field interface{}
-
 // AntiLog is the antidote to modern loggers
 type AntiLog struct {
-	Fields []Field
+	Fields []EncodedField
 	Writer io.Writer
 }
 
 // With returns a copy of the AntiLog instance with the provided fields preset for every subsequent call.
 func (a AntiLog) With(fields ...Field) AntiLog {
-	a.Fields = append(a.Fields, fields...)
+	a.Fields = append(a.Fields, encodeFieldList(fields)...)
 	return a
 }
 
@@ -42,16 +39,65 @@ func (a AntiLog) With(fields ...Field) AntiLog {
 // specify it multiple times.
 func (a AntiLog) Write(msg string, fields ...Field) {
 	now := time.Now().UTC()
-	combinedFields := []Field{
+	combinedFields := encodeFieldList([]Field{
 		"timestamp", now.Format(time.RFC3339),
 		"message", msg,
-	}
+	})
 	combinedFields = append(combinedFields, a.Fields...)
-	combinedFields = append(combinedFields, fields...)
+	combinedFields = append(combinedFields, encodeFieldList(fields)...)
 
 	if a.Writer == nil {
 		a.Writer = os.Stderr
 	}
 
-	fmt.Fprintln(a.Writer, toJSONObject(combinedFields))
+	fmt.Fprintln(a.Writer, encodedFieldsToJSONObject(combinedFields))
+}
+
+func encodeFieldList(fields []Field) []EncodedField {
+	convertedFields := make([]EncodedField, 0, len(fields))
+
+	numFields := len(fields) / 2
+	for ix := 0; ix < numFields; ix++ {
+		rawKey := fields[ix*2]
+		rawValue := fields[ix*2+1]
+
+		keyString, ok := rawKey.(string)
+		if !ok {
+			continue
+		}
+
+		key, ok := toJSON(keyString)
+		if !ok {
+			continue
+		}
+
+		value, ok := toJSON(rawValue)
+		if !ok {
+			continue
+		}
+
+		convertedFields = append(convertedFields, key, value)
+	}
+	return convertedFields
+}
+
+func encodedFieldsToJSONObject(fields []EncodedField) string {
+	var sb stringBuilder
+	sb.WriteString(`{ `)
+
+	numFields := len(fields) / 2
+	var comma bool
+	for ix := 0; ix < numFields; ix++ {
+		key := fields[ix*2]
+		value := fields[ix*2+1]
+
+		if comma {
+			sb.WriteString(`, `)
+		}
+		sb.WriteStrings(key.String(), `: `, value.String())
+		comma = true
+	}
+
+	sb.WriteString(` }`)
+	return sb.String()
 }

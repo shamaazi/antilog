@@ -161,6 +161,24 @@ func TestHandlesDeeplyNestedTypes(t *testing.T) {
 	require.EqualValues(t, inputStructure, logLine["a deep structure"])
 }
 
+func TestAlteringMapsDoesNotChangeLog(t *testing.T) {
+	buffer := &bytes.Buffer{}
+	logger := antilog.WithWriter(buffer)
+
+	values := map[string]string{
+		"woo": "yay",
+	}
+	logger = logger.With("values", values)
+
+	values["woo"] = "no"
+	values["yay"] = "yes"
+
+	logger.Write("this is a test")
+	logLine := parseLogLine(buffer.Bytes())
+
+	require.EqualValues(t, map[string]interface{}{"woo": "yay"}, logLine["values"])
+}
+
 func BenchmarkLogWithNoFields(b *testing.B) {
 	buffer := &bytes.Buffer{}
 	logger := antilog.WithWriter(buffer)
@@ -211,5 +229,48 @@ func BenchmarkLogWithComplexFields(b *testing.B) {
 
 	for n := 0; n < b.N; n++ {
 		logger.Write("a message", "complex field", inputStructure)
+	}
+}
+
+func BenchmarkLogWithComplexFieldsInContext(b *testing.B) {
+	buffer := &bytes.Buffer{}
+	logger := antilog.WithWriter(buffer).With("complex field", map[string]interface{}{
+		"array_with_various_types": []interface{}{
+			"string",
+			123.456,
+			[]interface{}{
+				"another",
+				"array",
+				"inside",
+			},
+			map[string]interface{}{
+				"a map": "nested in the array",
+			},
+		},
+		"map_with_various_types": map[string]interface{}{
+			"string": "a string",
+			"number": 1234.0,
+			"bool":   false,
+			"an array!": []interface{}{
+				"with",
+				"mixed",
+				false,
+				"types",
+				map[string]interface{}{
+					"including": "a map",
+				},
+			},
+			"another map": map[string]interface{}{
+				"with its own values": "like this",
+			},
+		},
+		"a struct of all things": struct {
+			Name string
+			Age  int
+		}{"Mr Blobby", 48},
+	})
+
+	for n := 0; n < b.N; n++ {
+		logger.Write("a message", "simple field", "test")
 	}
 }
