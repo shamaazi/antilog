@@ -48,6 +48,23 @@ Package antilog is the antidote to modern loggers.
 { "timestamp": "2019-11-18T14:00:32Z", "message": "a message", "request_id": "12345", "user_id": "big_jim_mcdonald", "field": "value", "a_number": 123, "a_bool": false }`
 ```
 
+## With Something Complex
+
+```go
+    antilog.Write("something complex!",
+        "array", []string{"this", "is", "an", "array"},
+        "map", map[string]string{
+            "key": "value",
+            "just": "like that",
+        },
+        "the_antilog_struct_itself", antilog.With("hello", "world"),
+    )
+```
+
+```json
+{ "timestamp": "2019-11-18T13:41:56Z", "message": "something complex!", "array": [ "this", "is", "an", "array" ], "map": { "key": "value", "just": "like that" }, "the_antilog_struct_itself": { "Fields": [ "hello", "world" ] } }
+```
+
 ## Output Somewhere Else
 
 ```go

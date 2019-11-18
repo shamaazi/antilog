@@ -61,6 +61,19 @@ func TestHandlesBasicTypes(t *testing.T) {
 	}
 }
 
+func TestOmitsUnknownTypes(t *testing.T) {
+	buffer := &bytes.Buffer{}
+	logger := antilog.WithWriter(buffer)
+
+	logger.Write("this is a test", "antilog", logger)
+	logLine := parseLogLine(buffer.Bytes())
+
+	expected := map[string]interface{}{
+		"Fields": []interface{}{},
+	}
+	require.EqualValues(t, expected, logLine["antilog"])
+}
+
 type OuterStruct struct {
 	Name         string
 	Inner        InnerStruct

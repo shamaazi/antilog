@@ -43,6 +43,7 @@ func toJSONObjectFields(fields []Field) string {
 	var sb stringBuilder
 
 	numFields := len(fields) / 2
+	var comma bool
 	for ix := 0; ix < numFields; ix++ {
 		rawKey := fields[ix*2]
 		rawValue := fields[ix*2+1]
@@ -53,10 +54,13 @@ func toJSONObjectFields(fields []Field) string {
 			continue
 		}
 
-		sb.WriteStrings(strconv.Quote(key), `: `, toJSON(rawValue))
+		if value, ok := toJSON(rawValue); ok {
+			if comma {
+				sb.WriteString(`, `)
+			}
 
-		if ix < numFields-1 {
-			sb.WriteString(`, `)
+			sb.WriteStrings(strconv.Quote(key), `: `, value)
+			comma = true
 		}
 	}
 
@@ -77,10 +81,14 @@ func toJSONArray(values []Field) string {
 	var sb stringBuilder
 	sb.WriteString(`[ `)
 
+	var comma bool
 	for ix := 0; ix < len(values); ix++ {
-		sb.WriteString(toJSON(values[ix]))
-		if ix != len(values)-1 {
-			sb.WriteString(`, `)
+		if value, ok := toJSON(values[ix]); ok {
+			if comma {
+				sb.WriteString(`, `)
+			}
+			sb.WriteString(value)
+			comma = true
 		}
 	}
 
@@ -88,7 +96,7 @@ func toJSONArray(values []Field) string {
 	return sb.String()
 }
 
-func toJSON(field Field) string {
+func toJSON(field Field) (string, bool) {
 	v := reflect.ValueOf(field)
 
 	var value string
@@ -112,7 +120,9 @@ func toJSON(field Field) string {
 	case reflect.Struct:
 		subfields := extractStructAsFields(v)
 		value = toJSONObject(subfields)
+	default:
+		return "", false
 	}
 
-	return value
+	return value, true
 }
