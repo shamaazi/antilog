@@ -23,6 +23,11 @@ type AntiLog struct {
 	Writer io.Writer
 }
 
+// New instance of AntiLog
+func New() AntiLog {
+	return AntiLog{}
+}
+
 // With returns a copy of the AntiLog instance with the provided fields preset for every subsequent call.
 func (a AntiLog) With(fields ...Field) AntiLog {
 	a.Fields = append(a.Fields, encodeFieldList(fields)...)

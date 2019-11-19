@@ -3,6 +3,7 @@ package antilog_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -72,6 +73,36 @@ func TestOmitsUnknownTypes(t *testing.T) {
 		"Fields": []interface{}{},
 	}
 	require.EqualValues(t, expected, logLine["antilog"])
+}
+
+func TestIncludesContextFields(t *testing.T) {
+	buffer := &bytes.Buffer{}
+	logger := antilog.WithWriter(buffer).With("test", "hello")
+
+	logger.Write("this is a test")
+	logLine := parseLogLine(buffer.Bytes())
+
+	require.EqualValues(t, "hello", logLine["test"])
+}
+
+func TestAppendsLoggedFieldsToContextFields(t *testing.T) {
+	buffer := &bytes.Buffer{}
+	logger := antilog.WithWriter(buffer).With("test", "hello")
+
+	logger.Write("this is a test", "tomato", "banana")
+	logLine := parseLogLine(buffer.Bytes())
+
+	require.EqualValues(t, "banana", logLine["tomato"])
+}
+
+func TestLogsErrors(t *testing.T) {
+	buffer := &bytes.Buffer{}
+	logger := antilog.WithWriter(buffer)
+
+	logger.Write("this is a test", "error", errors.New("an error occurred"))
+	logLine := parseLogLine(buffer.Bytes())
+
+	require.EqualValues(t, "an error occurred", logLine["error"])
 }
 
 type OuterStruct struct {

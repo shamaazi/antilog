@@ -99,30 +99,30 @@ func toJSONArray(values []Field) EncodedField {
 func toJSON(field Field) (EncodedField, bool) {
 	v := reflect.ValueOf(field)
 
-	var value EncodedField
 	switch v.Kind() {
 	case reflect.Bool:
-		value = EncodedField(fmt.Sprintf("%v", v.Bool()))
+		return EncodedField(fmt.Sprintf("%v", v.Bool())), true
 	case reflect.Int, reflect.Int8, reflect.Int32, reflect.Int64:
-		value = EncodedField(fmt.Sprintf("%v", v.Int()))
+		return EncodedField(fmt.Sprintf("%v", v.Int())), true
 	case reflect.Uint, reflect.Uint8, reflect.Uint32, reflect.Uint64:
-		value = EncodedField(fmt.Sprintf("%v", v.Uint()))
+		return EncodedField(fmt.Sprintf("%v", v.Uint())), true
 	case reflect.Float32, reflect.Float64:
-		value = EncodedField(fmt.Sprintf("%v", v.Float()))
+		return EncodedField(fmt.Sprintf("%v", v.Float())), true
 	case reflect.String:
-		value = EncodedField(strconv.Quote(v.String()))
+		return EncodedField(strconv.Quote(v.String())), true
 	case reflect.Slice:
 		values := extractArrayAsValues(v)
-		value = toJSONArray(values)
+		return toJSONArray(values), true
 	case reflect.Map:
 		subfields := extractMapAsFields(v)
-		value = toJSONObject(subfields)
+		return toJSONObject(subfields), true
 	case reflect.Struct:
 		subfields := extractStructAsFields(v)
-		value = toJSONObject(subfields)
+		return toJSONObject(subfields), true
 	default:
-		return "", false
+		if err, ok := v.Interface().(error); ok {
+			return EncodedField(strconv.Quote(err.Error())), true
+		}
 	}
-
-	return value, true
+	return "", false
 }
