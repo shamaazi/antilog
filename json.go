@@ -120,9 +120,12 @@ func toJSON(field Field) (EncodedField, bool) {
 		subfields := extractStructAsFields(v)
 		return toJSONObject(subfields), true
 	default:
-		if err, ok := v.Interface().(error); ok {
-			return EncodedField(strconv.Quote(err.Error())), true
+		if !v.IsZero() {
+			if err, ok := v.Interface().(error); ok {
+				return EncodedField(strconv.Quote(err.Error())), true
+			}
 		}
+
 	}
 	return "", false
 }
