@@ -99,6 +99,10 @@ func toJSONArray(values []Field) EncodedField {
 func toJSON(field Field) (EncodedField, bool) {
 	v := reflect.ValueOf(field)
 
+	if field == nil {
+		return "", false
+	}
+
 	switch v.Kind() {
 	case reflect.Bool:
 		return EncodedField(fmt.Sprintf("%v", v.Bool())), true
@@ -120,12 +124,9 @@ func toJSON(field Field) (EncodedField, bool) {
 		subfields := extractStructAsFields(v)
 		return toJSONObject(subfields), true
 	default:
-		if !v.IsZero() {
-			if err, ok := v.Interface().(error); ok {
-				return EncodedField(strconv.Quote(err.Error())), true
-			}
+		if err, ok := v.Interface().(error); ok {
+			return EncodedField(strconv.Quote(err.Error())), true
 		}
-
 	}
 	return "", false
 }

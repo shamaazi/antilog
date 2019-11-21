@@ -210,6 +210,15 @@ func TestAlteringMapsDoesNotChangeLog(t *testing.T) {
 	require.EqualValues(t, map[string]interface{}{"woo": "yay"}, logLine["values"])
 }
 
+func TestHandleEmptyInterface(t *testing.T) {
+	var user interface{}
+	buffer := &bytes.Buffer{}
+	logger := antilog.WithWriter(buffer)
+	logger.With("user", user)
+
+	require.Equal(t, "", buffer.String())
+}
+
 func BenchmarkLogWithNoFields(b *testing.B) {
 	buffer := &bytes.Buffer{}
 	logger := antilog.WithWriter(buffer)
