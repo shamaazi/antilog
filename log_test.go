@@ -70,7 +70,8 @@ func TestOmitsUnknownTypes(t *testing.T) {
 	logLine := parseLogLine(buffer.Bytes())
 
 	expected := map[string]interface{}{
-		"Fields": []interface{}{},
+		"Fields": nil,
+		"Writer": map[string]interface{}{},
 	}
 	require.EqualValues(t, expected, logLine["antilog"])
 }
@@ -95,6 +96,44 @@ func TestAppendsLoggedFieldsToContextFields(t *testing.T) {
 	require.EqualValues(t, "banana", logLine["tomato"])
 }
 
+func TestPicksLastDuplicateValue(t *testing.T) {
+	buffer := &bytes.Buffer{}
+	logger := antilog.WithWriter(buffer)
+
+	logger.Write("this is a test", "tomato", 1, "potato", 2, "pineapple", 3, "potato", 4)
+	require.NotContains(t, buffer.String(), `"potato": 2`)
+	require.Contains(t, buffer.String(), `"potato": 4`)
+
+	logLine := parseLogLine(buffer.Bytes())
+	require.EqualValues(t, 4, logLine["potato"])
+}
+
+func TestOverridesContextValue(t *testing.T) {
+	buffer := &bytes.Buffer{}
+	logger := antilog.WithWriter(buffer).With("potato", 2)
+
+	logger.Write("this is a test", "tomato", 1, "pineapple", 3, "potato", 4)
+	require.NotContains(t, buffer.String(), `"potato": 2`)
+	require.Contains(t, buffer.String(), `"potato": 4`)
+
+	logLine := parseLogLine(buffer.Bytes())
+	require.EqualValues(t, 4, logLine["potato"])
+}
+
+func TestReplacesContextValue(t *testing.T) {
+	buffer := &bytes.Buffer{}
+	logger := antilog.WithWriter(buffer).With("potato", 2)
+
+	logger = logger.With("potato", 4)
+
+	logger.Write("this is a test", "tomato", 1, "pineapple", 3)
+	require.NotContains(t, buffer.String(), `"potato": 2`)
+	require.Contains(t, buffer.String(), `"potato": 4`)
+
+	logLine := parseLogLine(buffer.Bytes())
+	require.EqualValues(t, 4, logLine["potato"])
+}
+
 func TestLogsErrors(t *testing.T) {
 	buffer := &bytes.Buffer{}
 	logger := antilog.WithWriter(buffer)
@@ -103,6 +142,17 @@ func TestLogsErrors(t *testing.T) {
 	logLine := parseLogLine(buffer.Bytes())
 
 	require.EqualValues(t, "an error occurred", logLine["error"])
+}
+
+func TestLogsNilErrors(t *testing.T) {
+	buffer := &bytes.Buffer{}
+	logger := antilog.WithWriter(buffer)
+
+	var err error
+	logger.Write("this is a test", "error", err)
+	logLine := parseLogLine(buffer.Bytes())
+
+	require.EqualValues(t, nil, logLine["error"])
 }
 
 type OuterStruct struct {

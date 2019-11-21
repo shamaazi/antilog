@@ -11,6 +11,7 @@
 package antilog
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -19,7 +20,7 @@ import (
 
 // AntiLog is the antidote to modern loggers
 type AntiLog struct {
-	Fields []EncodedField
+	Fields EncodedFields
 	Writer io.Writer
 }
 
@@ -30,7 +31,7 @@ func New() AntiLog {
 
 // With returns a copy of the AntiLog instance with the provided fields preset for every subsequent call.
 func (a AntiLog) With(fields ...Field) AntiLog {
-	a.Fields = append(a.Fields, encodeFieldList(fields)...)
+	a.Fields = encodeFieldList(fields).PrependUnique(a.Fields)
 	return a
 }
 
@@ -44,22 +45,45 @@ func (a AntiLog) With(fields ...Field) AntiLog {
 // specify it multiple times.
 func (a AntiLog) Write(msg string, fields ...Field) {
 	now := time.Now().UTC()
-	combinedFields := encodeFieldList([]Field{
-		"timestamp", now.Format(time.RFC3339),
-		"message", msg,
-	})
-	combinedFields = append(combinedFields, a.Fields...)
-	combinedFields = append(combinedFields, encodeFieldList(fields)...)
+
+	encodedFields := EncodedFields{}.
+		PrependUnique(encodeFieldList(fields)).
+		PrependUnique(a.Fields)
+
+	for ix := 0; ix < len(encodedFields); ix++ {
+		field := encodedFields[ix]
+		if field.Key() != "message" || field.Key() != "timestamp" {
+			continue
+		}
+		encodedFields = append(encodedFields[0:ix], encodedFields[ix+1:len(encodedFields)]...)
+	}
+
+	encodedFields = append(encodeFieldList([]Field{"timestamp", now.Format(time.RFC3339), "message", msg}), encodedFields...)
 
 	if a.Writer == nil {
 		a.Writer = os.Stderr
 	}
 
-	fmt.Fprintln(a.Writer, encodedFieldsToJSONObject(combinedFields))
+	fmt.Fprintln(a.Writer, encodedFieldsToJSONObject(encodedFields))
 }
 
-func encodeFieldList(fields []Field) []EncodedField {
-	convertedFields := make([]EncodedField, 0, len(fields))
+func toJSON(field Field) string {
+	// In the case of errors, explicitly destructure them
+	if err, ok := field.(error); ok {
+		field = err.Error()
+	}
+
+	// For anything else, just let json.Marshal do it
+	bytes, err := json.Marshal(field)
+	if err != nil {
+		return string(err.Error())
+	}
+
+	return string(bytes)
+}
+
+func encodeFieldList(fields []Field) EncodedFields {
+	convertedFields := make(EncodedFields, 0, len(fields))
 
 	numFields := len(fields) / 2
 	for ix := 0; ix < numFields; ix++ {
@@ -71,17 +95,10 @@ func encodeFieldList(fields []Field) []EncodedField {
 			continue
 		}
 
-		key, ok := toJSON(keyString)
-		if !ok {
-			continue
-		}
+		key := toJSON(keyString)
+		value := toJSON(rawValue)
 
-		value, ok := toJSON(rawValue)
-		if !ok {
-			continue
-		}
-
-		convertedFields = append(convertedFields, key, value)
+		convertedFields = append(convertedFields, EncodedField{key, value})
 	}
 	return convertedFields
 }
@@ -90,16 +107,12 @@ func encodedFieldsToJSONObject(fields []EncodedField) string {
 	var sb stringBuilder
 	sb.WriteString(`{ `)
 
-	numFields := len(fields) / 2
 	var comma bool
-	for ix := 0; ix < numFields; ix++ {
-		key := fields[ix*2]
-		value := fields[ix*2+1]
-
+	for _, field := range fields {
 		if comma {
 			sb.WriteString(`, `)
 		}
-		sb.WriteStrings(key.String(), `: `, value.String())
+		sb.WriteStrings(field.Key(), `: `, field.Value())
 		comma = true
 	}
 
