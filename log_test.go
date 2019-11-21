@@ -200,6 +200,35 @@ func TestHandlesNestedStructs(t *testing.T) {
 	require.EqualValues(t, inputStructure, actual.OuterStruct)
 }
 
+type TaggedStruct struct {
+	Name        string `json:"name"`
+	Age         int    `json:"age"`
+	NotIncluded string `json:"-"`
+}
+
+func TestHandlesStructTags(t *testing.T) {
+	inputStructure := TaggedStruct{
+		Name:        "Jim",
+		Age:         42,
+		NotIncluded: "blah",
+	}
+
+	buffer := &bytes.Buffer{}
+	logger := antilog.WithWriter(buffer)
+
+	logger.Write("this is a test", "struct test", inputStructure)
+
+	expected := map[string]interface{}{
+		"name": "Jim",
+		"age":  float64(42),
+	}
+	actual := map[string]interface{}{}
+	err := json.Unmarshal(buffer.Bytes(), &actual)
+	require.NoError(t, err)
+
+	require.EqualValues(t, expected, actual["struct test"])
+}
+
 func TestHandlesDeeplyNestedTypes(t *testing.T) {
 	inputStructure := map[string]interface{}{
 		"array_with_various_types": []interface{}{
