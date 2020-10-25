@@ -21,17 +21,22 @@ type EncodedFields []EncodedField
 
 // PrependUnique encoded field if the key is not already set
 func (f EncodedFields) PrependUnique(fields EncodedFields) EncodedFields {
-	var token struct{}
-	// map for uniqueness
-	m := make(map[string]struct{}, len(f)+len(fields))
-	for _, v := range f {
-		m[v.Key()] = token
-	}
 	var rev EncodedFields
 	for ix := len(fields) - 1; ix >= 0; ix-- {
 		field := fields[ix]
 		key := field.Key()
-		if _, found := m[key]; found {
+		flds := f
+		if rev != nil {
+			flds = rev
+		}
+		var found bool
+		for _, v := range flds {
+			if v.Key() == key {
+				found = true
+				break
+			}
+		}
+		if found {
 			continue
 		}
 		// rev contains the reversed EncodedFields, to allow appends.
@@ -43,7 +48,6 @@ func (f EncodedFields) PrependUnique(fields EncodedFields) EncodedFields {
 			}
 		}
 		rev = append(rev, field)
-		m[key] = token
 	}
 	if rev == nil {
 		// Nothing new has been added
