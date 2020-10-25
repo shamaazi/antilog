@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 func parseLogLine(b []byte) (v map[string]interface{}) {
 	err := json.Unmarshal(b, &v)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("%q: %+v", string(b), err))
 	}
 	return
 }
@@ -29,8 +30,8 @@ func parseTime(i interface{}) (t time.Time) {
 }
 
 func TestHasTimestampAndMessage(t *testing.T) {
-	buffer := &bytes.Buffer{}
-	logger := antilog.WithWriter(buffer)
+	var buffer bytes.Buffer
+	logger := antilog.WithWriter(&buffer)
 
 	logger.Write("this is a test")
 
@@ -51,20 +52,21 @@ func TestHandlesBasicTypes(t *testing.T) {
 		"map":    map[string]interface{}{"woo": "yay", "houpla": "panowie"},
 	} {
 		t.Run(test, func(t *testing.T) {
-			buffer := &bytes.Buffer{}
-			logger := antilog.WithWriter(buffer)
+			var buffer bytes.Buffer
+			logger := antilog.WithWriter(&buffer)
 
 			logger.Write("this is a test", test, value)
 			logLine := parseLogLine(buffer.Bytes())
 
+			t.Log(buffer.String())
 			require.EqualValues(t, value, logLine[test])
 		})
 	}
 }
 
 func TestOmitsUnknownTypes(t *testing.T) {
-	buffer := &bytes.Buffer{}
-	logger := antilog.WithWriter(buffer)
+	var buffer bytes.Buffer
+	logger := antilog.WithWriter(&buffer)
 
 	logger.Write("this is a test", "antilog", logger)
 	logLine := parseLogLine(buffer.Bytes())
@@ -77,8 +79,8 @@ func TestOmitsUnknownTypes(t *testing.T) {
 }
 
 func TestIncludesContextFields(t *testing.T) {
-	buffer := &bytes.Buffer{}
-	logger := antilog.WithWriter(buffer).With("test", "hello")
+	var buffer bytes.Buffer
+	logger := antilog.WithWriter(&buffer).With("test", "hello")
 
 	logger.Write("this is a test")
 	logLine := parseLogLine(buffer.Bytes())
@@ -87,8 +89,8 @@ func TestIncludesContextFields(t *testing.T) {
 }
 
 func TestAppendsLoggedFieldsToContextFields(t *testing.T) {
-	buffer := &bytes.Buffer{}
-	logger := antilog.WithWriter(buffer).With("test", "hello")
+	var buffer bytes.Buffer
+	logger := antilog.WithWriter(&buffer).With("test", "hello")
 
 	logger.Write("this is a test", "tomato", "banana")
 	logLine := parseLogLine(buffer.Bytes())
@@ -97,8 +99,8 @@ func TestAppendsLoggedFieldsToContextFields(t *testing.T) {
 }
 
 func TestPicksLastDuplicateValue(t *testing.T) {
-	buffer := &bytes.Buffer{}
-	logger := antilog.WithWriter(buffer)
+	var buffer bytes.Buffer
+	logger := antilog.WithWriter(&buffer)
 
 	logger.Write("this is a test", "tomato", 1, "potato", 2, "pineapple", 3, "potato", 4)
 	require.NotContains(t, buffer.String(), `"potato": 2`)
@@ -109,8 +111,8 @@ func TestPicksLastDuplicateValue(t *testing.T) {
 }
 
 func TestOverridesContextValue(t *testing.T) {
-	buffer := &bytes.Buffer{}
-	logger := antilog.WithWriter(buffer).With("potato", 2)
+	var buffer bytes.Buffer
+	logger := antilog.WithWriter(&buffer).With("potato", 2)
 
 	logger.Write("this is a test", "tomato", 1, "pineapple", 3, "potato", 4)
 	require.NotContains(t, buffer.String(), `"potato": 2`)
@@ -121,8 +123,8 @@ func TestOverridesContextValue(t *testing.T) {
 }
 
 func TestReplacesContextValue(t *testing.T) {
-	buffer := &bytes.Buffer{}
-	logger := antilog.WithWriter(buffer).With("potato", 2)
+	var buffer bytes.Buffer
+	logger := antilog.WithWriter(&buffer).With("potato", 2)
 
 	logger = logger.With("potato", 4)
 
@@ -135,8 +137,8 @@ func TestReplacesContextValue(t *testing.T) {
 }
 
 func TestLogsErrors(t *testing.T) {
-	buffer := &bytes.Buffer{}
-	logger := antilog.WithWriter(buffer)
+	var buffer bytes.Buffer
+	logger := antilog.WithWriter(&buffer)
 
 	logger.Write("this is a test", "error", errors.New("an error occurred"))
 	logLine := parseLogLine(buffer.Bytes())
@@ -145,8 +147,8 @@ func TestLogsErrors(t *testing.T) {
 }
 
 func TestLogsNilErrors(t *testing.T) {
-	buffer := &bytes.Buffer{}
-	logger := antilog.WithWriter(buffer)
+	var buffer bytes.Buffer
+	logger := antilog.WithWriter(&buffer)
 
 	var err error
 	logger.Write("this is a test", "error", err)
@@ -185,8 +187,8 @@ func TestHandlesNestedStructs(t *testing.T) {
 		AnotherField: "what is this?",
 	}
 
-	buffer := &bytes.Buffer{}
-	logger := antilog.WithWriter(buffer)
+	var buffer bytes.Buffer
+	logger := antilog.WithWriter(&buffer)
 
 	logger.Write("this is a test", "struct test", inputStructure)
 
@@ -213,8 +215,8 @@ func TestHandlesStructTags(t *testing.T) {
 		NotIncluded: "blah",
 	}
 
-	buffer := &bytes.Buffer{}
-	logger := antilog.WithWriter(buffer)
+	var buffer bytes.Buffer
+	logger := antilog.WithWriter(&buffer)
 
 	logger.Write("this is a test", "struct test", inputStructure)
 
@@ -262,8 +264,8 @@ func TestHandlesDeeplyNestedTypes(t *testing.T) {
 		},
 	}
 
-	buffer := &bytes.Buffer{}
-	logger := antilog.WithWriter(buffer)
+	var buffer bytes.Buffer
+	logger := antilog.WithWriter(&buffer)
 
 	logger.Write("this is a test", "a deep structure", inputStructure)
 	logLine := parseLogLine(buffer.Bytes())
@@ -272,8 +274,8 @@ func TestHandlesDeeplyNestedTypes(t *testing.T) {
 }
 
 func TestAlteringMapsDoesNotChangeLog(t *testing.T) {
-	buffer := &bytes.Buffer{}
-	logger := antilog.WithWriter(buffer)
+	var buffer bytes.Buffer
+	logger := antilog.WithWriter(&buffer)
 
 	values := map[string]string{
 		"woo": "yay",
@@ -290,8 +292,8 @@ func TestAlteringMapsDoesNotChangeLog(t *testing.T) {
 }
 
 func BenchmarkLogWithNoFields(b *testing.B) {
-	buffer := &bytes.Buffer{}
-	logger := antilog.WithWriter(buffer)
+	var buffer bytes.Buffer
+	logger := antilog.WithWriter(&buffer)
 
 	for n := 0; n < b.N; n++ {
 		logger.Write("a message")
@@ -299,8 +301,8 @@ func BenchmarkLogWithNoFields(b *testing.B) {
 }
 
 func BenchmarkLogWithComplexFields(b *testing.B) {
-	buffer := &bytes.Buffer{}
-	logger := antilog.WithWriter(buffer)
+	var buffer bytes.Buffer
+	logger := antilog.WithWriter(&buffer)
 	inputStructure := map[string]interface{}{
 		"array_with_various_types": []interface{}{
 			"string",
@@ -343,8 +345,8 @@ func BenchmarkLogWithComplexFields(b *testing.B) {
 }
 
 func BenchmarkLogWithComplexFieldsInContext(b *testing.B) {
-	buffer := &bytes.Buffer{}
-	logger := antilog.WithWriter(buffer).With("complex field", map[string]interface{}{
+	var buffer bytes.Buffer
+	logger := antilog.WithWriter(&buffer).With("complex field", map[string]interface{}{
 		"array_with_various_types": []interface{}{
 			"string",
 			123.456,
