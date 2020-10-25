@@ -1,14 +1,12 @@
 package antilog
 
 import (
-	"errors"
 	"io/ioutil"
 	"testing"
 	"time"
 )
 
 var (
-	errExample  = errors.New("fail")
 	fakeMessage = "Test logging, but use a somewhat realistic message length."
 )
 
