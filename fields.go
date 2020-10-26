@@ -21,13 +21,14 @@ type EncodedFields []EncodedField
 
 // PrependUnique encoded field if the key is not already set
 func (f EncodedFields) PrependUnique(fields EncodedFields) EncodedFields {
-	var rev EncodedFields
+	var res EncodedFields
+	var offset int
 	for ix := len(fields) - 1; ix >= 0; ix-- {
 		field := fields[ix]
 		key := field.Key()
 		flds := f
-		if rev != nil {
-			flds = rev
+		if res != nil {
+			flds = res[offset:]
 		}
 		var found bool
 		for _, v := range flds {
@@ -39,23 +40,19 @@ func (f EncodedFields) PrependUnique(fields EncodedFields) EncodedFields {
 		if found {
 			continue
 		}
-		// rev contains the reversed EncodedFields, to allow appends.
-		if rev == nil {
+		// res contains the EncodedFields, starting at offset
+		if res == nil {
 			length := len(f)
-			rev = make(EncodedFields, length, length+len(fields))
-			for i, v := range f {
-				rev[length-1-i] = v
-			}
+			offset = len(fields)
+			res = make(EncodedFields, offset+length)
+			copy(res[offset:], f)
 		}
-		rev = append(rev, field)
+		offset--
+		res[offset] = field
 	}
-	if rev == nil {
+	if res == nil {
 		// Nothing new has been added
 		return f
 	}
-	// Reverse the reversed array
-	for i, j := 0, len(rev)-1; i < j; i, j = i+1, j-1 {
-		rev[i], rev[j] = rev[j], rev[i]
-	}
-	return rev
+	return res[offset:]
 }
