@@ -1,9 +1,11 @@
-package antilog
+package antilog_test
 
 import (
 	"io/ioutil"
 	"testing"
 	"time"
+
+	"github.com/shamaazi/antilog"
 )
 
 var (
@@ -11,7 +13,7 @@ var (
 )
 
 func BenchmarkLogEmpty(b *testing.B) {
-	logger := New()
+	logger := antilog.New()
 	logger.Writer = ioutil.Discard
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -22,7 +24,7 @@ func BenchmarkLogEmpty(b *testing.B) {
 }
 
 func BenchmarkInfo(b *testing.B) {
-	logger := WithWriter(ioutil.Discard)
+	logger := antilog.WithWriter(ioutil.Discard)
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
@@ -32,7 +34,7 @@ func BenchmarkInfo(b *testing.B) {
 }
 
 func BenchmarkContextFields(b *testing.B) {
-	logger := WithWriter(ioutil.Discard).With(
+	logger := antilog.WithWriter(ioutil.Discard).With(
 		"string", "four!",
 		"time", time.Time{},
 		"int", 123,
@@ -46,7 +48,7 @@ func BenchmarkContextFields(b *testing.B) {
 }
 
 func BenchmarkContextAppend(b *testing.B) {
-	logger := WithWriter(ioutil.Discard).With("foo", "bar")
+	logger := antilog.WithWriter(ioutil.Discard).With("foo", "bar")
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
@@ -56,7 +58,7 @@ func BenchmarkContextAppend(b *testing.B) {
 }
 
 func BenchmarkLogFields(b *testing.B) {
-	logger := WithWriter(ioutil.Discard)
+	logger := antilog.WithWriter(ioutil.Discard)
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {

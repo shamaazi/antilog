@@ -54,7 +54,7 @@ func (a AntiLog) Write(msg string, fields ...Field) {
 	sb.WriteString(`{ "timestamp": "`)
 	sb.WriteString(now.Format(time.RFC3339))
 	sb.WriteString(`", "message": `)
-	json.NewEncoder(&sb).Encode(msg)
+	_ = json.NewEncoder(&sb).Encode(msg)
 
 	for _, field := range encodedFields {
 		key := field.Key()
@@ -72,7 +72,7 @@ func (a AntiLog) Write(msg string, fields ...Field) {
 	if w == nil {
 		w = os.Stderr
 	}
-	w.Write(sb.Bytes())
+	_, _ = w.Write(sb.Bytes())
 }
 
 func toJSON(field Field) string {
