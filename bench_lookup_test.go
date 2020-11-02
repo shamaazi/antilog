@@ -33,9 +33,6 @@ func BenchmarkLookupMap(b *testing.B) {
 	}
 }
 func BenchmarkLookupWalk(b *testing.B) {
-	if b.Short() {
-		b.Skip()
-	}
 	for length := 1; length < len(lookupArray); length++ {
 		b.Run(strconv.Itoa(length), func(b *testing.B) {
 			b.StopTimer()
