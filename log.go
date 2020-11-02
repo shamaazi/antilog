@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -35,6 +36,8 @@ func (a AntiLog) With(fields ...Field) AntiLog {
 	return a
 }
 
+var buffers = sync.Pool{New: func() interface{} { return bytes.NewBuffer(make([]byte, 0, 1024)) }}
+
 // Write a JSON message to the configured writer or os.Stderr.
 //
 // Includes the message with the key `message`. Includes the timestamp with the
@@ -50,11 +53,27 @@ func (a AntiLog) Write(msg string, fields ...Field) {
 		PrependUnique(encodeFieldList(fields)).
 		PrependUnique(a.Fields)
 
-	var sb bytes.Buffer
-	sb.WriteString(`{ "timestamp": "`)
+	const messageKey, timestampKey = "message", "timestamp"
+	var lenEncFields int
+	for _, field := range encodedFields {
+		key := field.Key()
+		if key == messageKey || key == timestampKey {
+			continue
+		}
+		lenEncFields += 2 + len(key) + 2 + len(field.Value())
+	}
+
+	const begin, msgInsert = `{ "` + timestampKey + `": "`, `", "` + messageKey + `": `
+	sb := buffers.Get().(*bytes.Buffer)
+	sb.Reset()
+	sb.Grow(len(begin) + len(time.RFC3339) + len(msgInsert) + len(msg) + lenEncFields + 2)
+	sb.WriteString(begin)
 	sb.WriteString(now.Format(time.RFC3339))
-	sb.WriteString(`", "message": `)
-	_ = json.NewEncoder(&sb).Encode(msg)
+	sb.WriteString(msgInsert)
+	_ = json.NewEncoder(sb).Encode(msg)
+	if sb.Bytes()[sb.Len()-1] == '\n' {
+		sb.Truncate(sb.Len() - 1)
+	}
 
 	for _, field := range encodedFields {
 		key := field.Key()
@@ -73,6 +92,7 @@ func (a AntiLog) Write(msg string, fields ...Field) {
 		w = os.Stderr
 	}
 	_, _ = w.Write(sb.Bytes())
+	buffers.Put(sb)
 }
 
 func toJSON(field Field) string {
