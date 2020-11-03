@@ -1,0 +1,22 @@
+name: PR
+on:
+  pull_request:
+    branches:
+    - master
+jobs:
+  test-lint:
+    name: Test Go
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.15
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Test
+      run: go test ./...
+    - name: Lint
+      run: |
+        export BADFMT=$(gofmt -s -l .)
+        test -z "$BADFMT" || (echo -e "invalid gofmt: $BADFMT"; exit 1)
