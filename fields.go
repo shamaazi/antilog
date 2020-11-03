@@ -21,21 +21,29 @@ type EncodedFields []EncodedField
 
 // PrependUnique encoded field if the key is not already set
 func (f EncodedFields) PrependUnique(fields EncodedFields) EncodedFields {
+	if len(fields) == 0 {
+		return f
+	}
+	var offset int
 	for ix := len(fields) - 1; ix >= 0; ix-- {
 		field := fields[ix]
-
+		key := field.Key()
 		var found bool
-		for _, v := range f {
-			if v.Key() == field.Key() {
+		for _, v := range f[offset:] {
+			if v.Key() == key {
 				found = true
 				break
 			}
 		}
-
-		if !found {
-			f = append(EncodedFields{field}, f...)
+		if found {
+			continue
 		}
+		if offset == 0 {
+			offset = len(fields)
+			f = append(make(EncodedFields, offset, offset+len(f)), f...)
+		}
+		offset--
+		f[offset] = field
 	}
-
-	return f
+	return f[offset:]
 }

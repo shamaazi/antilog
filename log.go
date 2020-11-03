@@ -11,10 +11,11 @@
 package antilog
 
 import (
+	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -35,6 +36,8 @@ func (a AntiLog) With(fields ...Field) AntiLog {
 	return a
 }
 
+var buffers = sync.Pool{New: func() interface{} { return bytes.NewBuffer(make([]byte, 0, 1024)) }}
+
 // Write a JSON message to the configured writer or os.Stderr.
 //
 // Includes the message with the key `message`. Includes the timestamp with the
@@ -50,21 +53,46 @@ func (a AntiLog) Write(msg string, fields ...Field) {
 		PrependUnique(encodeFieldList(fields)).
 		PrependUnique(a.Fields)
 
-	for ix := 0; ix < len(encodedFields); ix++ {
-		field := encodedFields[ix]
-		if field.Key() != "message" || field.Key() != "timestamp" {
+	const messageKey, timestampKey = "message", "timestamp"
+	var lenEncFields int
+	for _, field := range encodedFields {
+		key := field.Key()
+		if key == messageKey || key == timestampKey {
 			continue
 		}
-		encodedFields = append(encodedFields[0:ix], encodedFields[ix+1:len(encodedFields)]...)
+		lenEncFields += 2 + len(key) + 2 + len(field.Value())
 	}
 
-	encodedFields = append(encodeFieldList([]Field{"timestamp", now.Format(time.RFC3339), "message", msg}), encodedFields...)
-
-	if a.Writer == nil {
-		a.Writer = os.Stderr
+	const begin, msgInsert = `{ "` + timestampKey + `": "`, `", "` + messageKey + `": `
+	sb := buffers.Get().(*bytes.Buffer)
+	sb.Reset()
+	sb.Grow(len(begin) + len(time.RFC3339) + len(msgInsert) + len(msg) + lenEncFields + 2)
+	sb.WriteString(begin)
+	sb.WriteString(now.Format(time.RFC3339))
+	sb.WriteString(msgInsert)
+	_ = json.NewEncoder(sb).Encode(msg)
+	if sb.Bytes()[sb.Len()-1] == '\n' {
+		sb.Truncate(sb.Len() - 1)
 	}
 
-	fmt.Fprintln(a.Writer, encodedFieldsToJSONObject(encodedFields))
+	for _, field := range encodedFields {
+		key := field.Key()
+		if key == "message" || key == "timestamp" {
+			continue
+		}
+		sb.WriteString(", ")
+		sb.WriteString(key)
+		sb.WriteString(`: `)
+		sb.WriteString(field.Value())
+	}
+	sb.WriteString(` }`)
+
+	w := a.Writer
+	if w == nil {
+		w = os.Stderr
+	}
+	_, _ = w.Write(sb.Bytes())
+	buffers.Put(sb)
 }
 
 func toJSON(field Field) string {
@@ -101,21 +129,4 @@ func encodeFieldList(fields []Field) EncodedFields {
 		convertedFields = append(convertedFields, EncodedField{key, value})
 	}
 	return convertedFields
-}
-
-func encodedFieldsToJSONObject(fields []EncodedField) string {
-	var sb stringBuilder
-	sb.WriteString(`{ `)
-
-	var comma bool
-	for _, field := range fields {
-		if comma {
-			sb.WriteString(`, `)
-		}
-		sb.WriteStrings(field.Key(), `: `, field.Value())
-		comma = true
-	}
-
-	sb.WriteString(` }`)
-	return sb.String()
 }
