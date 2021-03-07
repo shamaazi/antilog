@@ -85,7 +85,7 @@ func (a AntiLog) Write(msg string, fields ...Field) {
 		sb.WriteString(`: `)
 		sb.WriteString(field.Value())
 	}
-	sb.WriteString(` }`)
+	sb.WriteString(" }\n")
 
 	w := a.Writer
 	if w == nil {

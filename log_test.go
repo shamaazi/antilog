@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,6 +38,7 @@ func TestHasTimestampAndMessage(t *testing.T) {
 
 	logLine := parseLogLine(buffer.Bytes())
 
+	require.True(t, strings.HasSuffix(string(buffer.Bytes()), "\n"), "Log line should end with a new line")
 	require.Len(t, logLine, 2)
 	require.WithinDuration(t, time.Now(), parseTime(logLine["timestamp"]), 1*time.Second)
 	require.Equal(t, "this is a test", logLine["message"])
